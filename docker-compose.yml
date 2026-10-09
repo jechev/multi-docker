@@ -3,10 +3,12 @@ services:
     image: "dimitarzhechev/multi-client:latest"
     mem_limit: 128m
     hostname: client
+    restart: always
   server:
     image: "dimitarzhechev/multi-server:latest"
     mem_limit: 128m
     hostname: api
+    restart: always
     environment:
       - REDIS_HOST=$REDIS_HOST
       - REDIS_PORT=$REDIS_PORT
@@ -19,6 +21,7 @@ services:
     image: "dimitarzhechev/multi-worker:latest"
     mem_limit: 128m
     hostname: worker
+    restart: always
     environment:
       - REDIS_HOST=$REDIS_HOST
       - REDIS_PORT=$REDIS_PORT
@@ -26,5 +29,9 @@ services:
     image: "dimitarzhechev/multi-nginx:latest"
     mem_limit: 128m
     hostname: nginx
+    restart: always
+    depends_on:
+      - client
+      - api
     ports:
       - "80:80"
