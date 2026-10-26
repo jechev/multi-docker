@@ -1,0 +1,55 @@
+name: Deploy MultiK8s
+
+on:
+  push:
+    branches:
+      - kubernetes
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Docker login
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Test
+        run: |-
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/react-test -f ./client/Dockerfile.dev ./client
+          docker run -e CI=true ${{ secrets.DOCKER_USERNAME }}/react-test npm test
+
+      - name: Set Service Key
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GKE_SA_KEY }}'
+
+      - name: Set Project
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: multi-k8s-511711
+
+      - name: Get Credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: multi-k8s
+          location: us-west1
+
+      - name: Build
+        run: |-
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/multi-client-k8s:latest -t ${{ secrets.DOCKER_USERNAME }}/multi-client-k8s:${{ github.sha }} -f ./client/Dockerfile ./client
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/multi-server-k8s:latest -t ${{ secrets.DOCKER_USERNAME }}/multi-server-k8s:${{ github.sha }} -f ./server/Dockerfile ./server
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/multi-worker-k8s:latest -t ${{ secrets.DOCKER_USERNAME }}/multi-worker-k8s:${{ github.sha }} -f ./worker/Dockerfile ./worker
+
+      - name: Push
+        run: |-
+          docker push --all-tags ${{ secrets.DOCKER_USERNAME }}/multi-client-k8s
+          docker push --all-tags ${{ secrets.DOCKER_USERNAME }}/multi-server-k8s
+          docker push --all-tags ${{ secrets.DOCKER_USERNAME }}/multi-worker-k8s
+
+      - name: Apply
+        run: |-
+          kubectl apply -f k8s
+          kubectl set image deployments/server-deployment server=${{ secrets.DOCKER_USERNAME }}/multi-server-k8s:${{ github.sha }}
+          kubectl set image deployments/client-deployment client=${{ secrets.DOCKER_USERNAME }}/multi-client-k8s:${{ github.sha }}
+          kubectl set image deployments/worker-deployment worker=${{ secrets.DOCKER_USERNAME }}/multi-worker-k8s:${{ github.sha }}
