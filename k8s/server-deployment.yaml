@@ -14,7 +14,7 @@ spec:
     spec:
       containers: 
         - name: server
-          image: dimitarzhechev/multi-server
+          image: dimitarzhechev/multi-server-k8s
           ports:
             - containerPort: 5000
           env:
