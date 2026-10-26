@@ -28,14 +28,15 @@ const redisClient = redis.createClient({
   url: `redis://${keys.redisHost}:${keys.redisPort}`
 });
 
-(async () => {
-  await redisClient.connect();
-})();
-
 const redisPublisher = redisClient.duplicate();
 
 redisClient.on('error', (err) => console.log('Redis error', err));
 redisPublisher.on('error', (err) => console.log('Redis publisher error', err));
+
+(async () => {
+  await redisClient.connect();
+  await redisPublisher.connect();
+})().catch((err) => console.log('Redis connection error:', err));
 
 app.get('/', (req, res) => {
   res.send('Hi');
